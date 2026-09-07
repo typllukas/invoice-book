@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\DTO\VatSummaryLine;
 use App\Enum\InvoiceStatus;
+use App\Enum\VatRate;
+use App\Helper\MixedToInteger;
+use App\Helper\MixedToString;
+use App\Helper\VatCalculator;
 use App\Repository\InvoiceRepository;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -267,5 +272,43 @@ final class Invoice
         $this->items->removeElement($item);
 
         return $this;
+    }
+
+    /**
+     * @return list<VatSummaryLine>
+     */
+    public function getVatSummary(): array
+    {
+        if ($this->issuedVatSummary === null) {
+            return VatCalculator::summarize($this->items);
+        }
+
+        $summaryLines = [];
+
+        foreach ($this->issuedVatSummary as $summaryLine) {
+            $summaryLines[] = new VatSummaryLine(
+                VatRate::from(MixedToString::transformStrict($summaryLine['vatRate'])),
+                MixedToInteger::transformStrict($summaryLine['netAmount']),
+                MixedToInteger::transformStrict($summaryLine['vatAmount']),
+                MixedToInteger::transformStrict($summaryLine['grossAmount']),
+            );
+        }
+
+        return $summaryLines;
+    }
+
+    public function getTotalNetAmount(): int
+    {
+        return VatCalculator::calculateTotalNetAmount($this->getVatSummary());
+    }
+
+    public function getTotalVatAmount(): int
+    {
+        return VatCalculator::calculateTotalVatAmount($this->getVatSummary());
+    }
+
+    public function getTotalGrossAmount(): int
+    {
+        return VatCalculator::calculateTotalGrossAmount($this->getVatSummary());
     }
 }
