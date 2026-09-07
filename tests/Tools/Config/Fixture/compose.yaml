@@ -1,0 +1,4 @@
+# input of ConfigHygieneTest, stands in for the project root compose.yaml
+services:
+    php:
+        user: '${HOST_UID:-1000}:${HOST_GID:-1000}'

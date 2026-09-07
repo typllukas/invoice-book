@@ -1,0 +1,4 @@
+# input of ConfigHygieneTest, stands in for the project root config/packages/lock.yaml
+when@dev:
+    framework:
+        lock: {}

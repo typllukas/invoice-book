@@ -1,0 +1,5 @@
+# input of ConfigHygieneTest, stands in for the project root config/packages/cache.yaml
+framework:
+    cache:
+        # Redis
+        #app: cache.adapter.redis
