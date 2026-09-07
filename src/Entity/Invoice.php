@@ -16,7 +16,9 @@ use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
+use ApiPlatform\OpenApi\Model\Operation as OpenApiOperation;
 use App\DTO\InvoiceInput;
+use App\DTO\Supplier;
 use App\DTO\VatSummaryLine;
 use App\Enum\InvoiceStatus;
 use App\Enum\VatRate;
@@ -26,12 +28,15 @@ use App\Helper\VatCalculator;
 use App\Repository\InvoiceRepository;
 use App\State\Processor\Invoice\CreateInvoiceProcessor;
 use App\State\Processor\Invoice\DeleteInvoiceProcessor;
+use App\State\Processor\Invoice\IssueInvoiceProcessor;
+use App\State\Processor\Invoice\MarkInvoicePaidProcessor;
 use App\State\Processor\Invoice\UpdateInvoiceProcessor;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use LogicException;
 use Symfony\Bridge\Doctrine\Types\UlidType;
 use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -67,6 +72,32 @@ use function preg_replace;
                     'invoice:operation:get',
                 ],
             ],
+        ),
+        new Post(
+            uriTemplate: '/invoices/{id}/issue',
+            processor: IssueInvoiceProcessor::class,
+            input: false,
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+            status: 200,
+            openapi: new OpenApiOperation(summary: 'Issue the invoice.'),
+        ),
+        new Post(
+            uriTemplate: '/invoices/{id}/mark_paid',
+            processor: MarkInvoicePaidProcessor::class,
+            input: false,
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+            status: 200,
+            openapi: new OpenApiOperation(summary: 'Mark the invoice as paid.'),
         ),
         new Put(
             processor: UpdateInvoiceProcessor::class,
@@ -364,6 +395,51 @@ final class Invoice
         $this->items->removeElement($item);
 
         return $this;
+    }
+
+    /**
+     * Supplier, line amounts and VAT recapitulation are copied, so a later change to the supplier or to the VAT
+     * calculation cannot alter an issued document.
+     */
+    public function issue(string $number, DateTimeImmutable $issuedAt, Supplier $supplier): void
+    {
+        if ($this->status !== InvoiceStatus::DRAFT) {
+            throw new LogicException('Only a draft invoice can be issued.');
+        }
+
+        $this->number = $number;
+        $this->issuedAt = $issuedAt;
+        $this->status = InvoiceStatus::ISSUED;
+        $this->supplierName = $supplier->name;
+        $this->supplierAddress = $supplier->address;
+        $this->supplierCompanyId = $supplier->companyId;
+        $this->supplierVatId = $supplier->vatId;
+        $this->supplierBankAccount = $supplier->bankAccount;
+        $this->supplierRegisterEntry = $supplier->registerEntry;
+
+        foreach ($this->items as $item) {
+            $item->freezeNetAmount();
+        }
+
+        $this->issuedVatSummary = [];
+
+        foreach (VatCalculator::summarize($this->items) as $summaryLine) {
+            $this->issuedVatSummary[] = [
+                'vatRate' => $summaryLine->vatRate->value,
+                'netAmount' => $summaryLine->netAmount,
+                'vatAmount' => $summaryLine->vatAmount,
+                'grossAmount' => $summaryLine->grossAmount,
+            ];
+        }
+    }
+
+    public function markPaid(DateTimeImmutable $paidAt): void
+    {
+        if ($this->status !== InvoiceStatus::ISSUED || $this->paidAt instanceof DateTimeImmutable) {
+            throw new LogicException('Only an issued unpaid invoice can be marked paid.');
+        }
+
+        $this->paidAt = $paidAt;
     }
 
     #[Groups(['invoice:operation:get'])]
