@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Tools\Sniffs\Fixture;
+
+final class ShortChains
+{
+    public function chain(object $builder): void
+    {
+        $builder->first()
+            ->second();
+        $builder?->first()
+            ?->second();
+        $builder->first()->second();
+        $builder->firstCallOnTheBuilder('an argument long enough that the joined chain passes the line limit')
+            ->secondCallOnTheBuilder();
+        $builder->first() // a note
+            ->second();
+        $builder->first()
+            ->second()
+            ->third();
+        $builder->first()
+            ->second(); // a trailing note long enough that joining the chain would push this line over the limit
+        $builder->first('Číselná řada faktur roku je vyčerpaná, žádné další číslo už přidělit nejde')
+            ->second();
+    }
+}

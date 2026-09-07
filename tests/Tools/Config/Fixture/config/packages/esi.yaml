@@ -1,0 +1,3 @@
+# input of ConfigHygieneTest, stands in for the project root config/packages/esi.yaml
+framework:
+    esi: ~

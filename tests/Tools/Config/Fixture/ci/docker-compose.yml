@@ -1,0 +1,4 @@
+# input of ConfigHygieneTest, stands in for the project root ci/docker-compose.yml
+services:
+    smoke:
+        command: sh -c 'curl --fail $ROUTER_URI'

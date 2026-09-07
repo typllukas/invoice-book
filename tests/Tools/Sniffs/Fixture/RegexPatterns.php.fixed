@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Tools\Sniffs\Fixture;
+
+use function preg_match;
+
+final class RegexPatterns
+{
+    private const string COMPANY_ID_PATTERN = '/^\d{8}$/D';
+
+    public function match(string $value): bool
+    {
+        return preg_match('~^CZ\d{8,10}$~uD', $value) === 1
+            || preg_match(self::COMPANY_ID_PATTERN, $value) === 1
+            || preg_match('/^\d{8}$/D', $value) === 1
+            || preg_match('/^\d{8}$/mu', $value) === 1
+            || preg_match('/^\d+\$/', $value) === 1
+            || preg_match('/^\d+/', $value) === 1
+            || preg_match('{^\d+$}D', $value) === 1
+            || $value === 'total: 5$';
+    }
+}
