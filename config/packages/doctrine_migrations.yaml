@@ -1,0 +1,5 @@
+doctrine_migrations:
+    migrations_paths:
+        'DoctrineMigrations': '%kernel.project_dir%/migrations'
+    # MariaDB commits each CREATE and ALTER on its own, so a migration cannot run in one transaction
+    transactional: false

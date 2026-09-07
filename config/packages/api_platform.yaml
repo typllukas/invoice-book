@@ -1,0 +1,9 @@
+api_platform:
+    title: 'invoice-book'
+    description: 'Kniha faktur — referenční aplikace'
+    version: '1.0.0'
+    defaults:
+        # a value of the wrong type is otherwise a bare 400, with no field for the form to show it under
+        collect_denormalization_errors: true
+        normalization_context:
+            skip_null_values: false
