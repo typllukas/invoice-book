@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Enum\VatRate;
+use App\Helper\VatCalculator;
 use BcMath\Number;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UlidType;
@@ -113,6 +114,20 @@ final class InvoiceItem
         $this->unitPriceNetInMajorUnits = new Number($minorUnits)->div(100);
 
         return $this;
+    }
+
+    public function getNetAmount(): int
+    {
+        if (!$this->issuedNetAmountInMajorUnits instanceof Number) {
+            return VatCalculator::calculateLineNetAmount($this);
+        }
+
+        return intval(strval($this->issuedNetAmountInMajorUnits->mul(100)));
+    }
+
+    public function freezeNetAmount(): void
+    {
+        $this->issuedNetAmountInMajorUnits = new Number(VatCalculator::calculateLineNetAmount($this))->div(100);
     }
 
     public function getVatRate(): VatRate
