@@ -1,0 +1,41 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\State\Processor\Invoice;
+
+use ApiPlatform\Metadata\Operation;
+use ApiPlatform\State\ProcessorInterface;
+use App\DTO\InvoiceInput;
+use App\Entity\Invoice;
+use App\Service\InvoiceInputMapper;
+use Doctrine\ORM\EntityManagerInterface;
+use Override;
+
+/**
+ * @implements ProcessorInterface<InvoiceInput, Invoice>
+ */
+final readonly class CreateInvoiceProcessor implements ProcessorInterface
+{
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private InvoiceInputMapper $invoiceInputMapper,
+    ) {
+    }
+
+    /**
+     * @param array<string, mixed> $uriVariables
+     * @param array<string, mixed> $context
+     */
+    #[Override]
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Invoice
+    {
+        $invoice = new Invoice();
+        $this->invoiceInputMapper->mapOntoInvoice($data, $invoice);
+
+        $this->entityManager->persist($invoice);
+        $this->entityManager->flush();
+
+        return $invoice;
+    }
+}
