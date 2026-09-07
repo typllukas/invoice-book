@@ -1,0 +1,61 @@
+{
+  "the recapitulation splits the totals by rate, highest rate first": {
+    "items": [
+      { "quantity": "1.000", "unitPriceNet": 2400000, "vatRate": "12" },
+      { "quantity": "8.000", "unitPriceNet": 150000, "vatRate": "21" }
+    ],
+    "lines": [
+      { "vatRate": "21", "netAmount": 1200000, "vatAmount": 252000, "grossAmount": 1452000 },
+      { "vatRate": "12", "netAmount": 2400000, "vatAmount": 288000, "grossAmount": 2688000 }
+    ],
+    "netAmount": 3600000,
+    "vatAmount": 540000,
+    "grossAmount": 4140000
+  },
+  "vat comes from the summed base of the rate, 8 where each line would give 3 + 3 + 3": {
+    "items": [
+      { "quantity": "1.000", "unitPriceNet": 12, "vatRate": "21" },
+      { "quantity": "1.000", "unitPriceNet": 12, "vatRate": "21" },
+      { "quantity": "1.000", "unitPriceNet": 12, "vatRate": "21" }
+    ],
+    "lines": [{ "vatRate": "21", "netAmount": 36, "vatAmount": 8, "grossAmount": 44 }],
+    "netAmount": 36,
+    "vatAmount": 8,
+    "grossAmount": 44
+  },
+  "a fractional quantity with no remainder is exact": {
+    "items": [{ "quantity": "2.500", "unitPriceNet": 150000, "vatRate": "21" }],
+    "lines": [{ "vatRate": "21", "netAmount": 375000, "vatAmount": 78750, "grossAmount": 453750 }],
+    "netAmount": 375000,
+    "vatAmount": 78750,
+    "grossAmount": 453750
+  },
+  "the line base rounds an exact half up": {
+    "items": [{ "quantity": "1.500", "unitPriceNet": 33333, "vatRate": "0" }],
+    "lines": [{ "vatRate": "0", "netAmount": 50000, "vatAmount": 0, "grossAmount": 50000 }],
+    "netAmount": 50000,
+    "vatAmount": 0,
+    "grossAmount": 50000
+  },
+  "half a haléř of line base rounds up to one": {
+    "items": [{ "quantity": "0.500", "unitPriceNet": 1, "vatRate": "21" }],
+    "lines": [{ "vatRate": "21", "netAmount": 1, "vatAmount": 0, "grossAmount": 1 }],
+    "netAmount": 1,
+    "vatAmount": 0,
+    "grossAmount": 1
+  },
+  "less than half a haléř of line base rounds down to none": {
+    "items": [{ "quantity": "0.499", "unitPriceNet": 1, "vatRate": "21" }],
+    "lines": [{ "vatRate": "21", "netAmount": 0, "vatAmount": 0, "grossAmount": 0 }],
+    "netAmount": 0,
+    "vatAmount": 0,
+    "grossAmount": 0
+  },
+  "the vat amount rounds an exact half up": {
+    "items": [{ "quantity": "1.000", "unitPriceNet": 50, "vatRate": "21" }],
+    "lines": [{ "vatRate": "21", "netAmount": 50, "vatAmount": 11, "grossAmount": 61 }],
+    "netAmount": 50,
+    "vatAmount": 11,
+    "grossAmount": 61
+  }
+}
