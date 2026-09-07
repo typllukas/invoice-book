@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Entity;
+
+use App\Enum\VatRate;
+use BcMath\Number;
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Uid\Ulid;
+
+use function intval;
+use function strval;
+
+#[ORM\Entity]
+final class InvoiceItem
+{
+    #[ORM\Id]
+    #[ORM\Column(type: UlidType::NAME)]
+    private Ulid $id;
+
+    #[ORM\ManyToOne(inversedBy: 'items')]
+    #[ORM\JoinColumn(nullable: false)]
+    private Invoice $invoice;
+
+    #[ORM\Column(length: 255)]
+    private string $description;
+
+    #[ORM\Column(precision: 10, scale: 3)]
+    private Number $quantity;
+
+    #[ORM\Column(length: 16)]
+    private string $unit;
+
+    #[ORM\Column(precision: 12, scale: 2)]
+    private Number $unitPriceNetInMajorUnits;
+
+    #[ORM\Column(length: 2)]
+    private VatRate $vatRate;
+
+    /**
+     * Frozen by Invoice::issue() together with the VAT recapitulation, null on a draft.
+     */
+    #[ORM\Column(precision: 12, scale: 2, nullable: true)]
+    private ?Number $issuedNetAmountInMajorUnits = null;
+
+    public function __construct(?Ulid $id = null)
+    {
+        $this->id = $id ?? new Ulid();
+    }
+
+    public function getId(): Ulid
+    {
+        return $this->id;
+    }
+
+    public function getInvoice(): Invoice
+    {
+        return $this->invoice;
+    }
+
+    public function setInvoice(Invoice $invoice): self
+    {
+        $this->invoice = $invoice;
+
+        return $this;
+    }
+
+    public function getDescription(): string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(string $description): self
+    {
+        $this->description = $description;
+
+        return $this;
+    }
+
+    public function getQuantity(): Number
+    {
+        return $this->quantity;
+    }
+
+    public function setQuantity(Number $quantity): self
+    {
+        $this->quantity = $quantity;
+
+        return $this;
+    }
+
+    public function getUnit(): string
+    {
+        return $this->unit;
+    }
+
+    public function setUnit(string $unit): self
+    {
+        $this->unit = $unit;
+
+        return $this;
+    }
+
+    public function getUnitPriceNet(): int
+    {
+        return intval(strval($this->unitPriceNetInMajorUnits->mul(100)));
+    }
+
+    public function setUnitPriceNet(int $minorUnits): self
+    {
+        $this->unitPriceNetInMajorUnits = new Number($minorUnits)->div(100);
+
+        return $this;
+    }
+
+    public function getVatRate(): VatRate
+    {
+        return $this->vatRate;
+    }
+
+    public function setVatRate(VatRate $vatRate): self
+    {
+        $this->vatRate = $vatRate;
+
+        return $this;
+    }
+}
