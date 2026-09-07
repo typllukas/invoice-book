@@ -1,0 +1,23 @@
+services:
+    - class: Tools\PHPStan\Rules\StringDqlRule
+      tags: [phpstan.rules.rule]
+
+parameters:
+    level: 10
+    checkMissingOverrideMethodAttribute: true
+    paths:
+        - src
+        - tests
+        - tools
+    # the rule, sniff and config tests analyse these files themselves, and they break the rules on purpose
+    excludePaths:
+        - tests/Tools/Config/Fixture
+        - tests/Tools/PHPStan/Fixture
+        - tests/Tools/Sniffs/Fixture
+    # PHP_CodeSniffer ships its own loader, so composer's autoloader cannot find the sniff interface
+    scanDirectories:
+        - vendor/squizlabs/php_codesniffer/src
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tests/object-manager.php
