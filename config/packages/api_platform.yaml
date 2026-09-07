@@ -7,3 +7,5 @@ api_platform:
         collect_denormalization_errors: true
         normalization_context:
             skip_null_values: false
+    exception_to_status:
+        App\Exception\UnmatchedInvoiceItemException: 422
