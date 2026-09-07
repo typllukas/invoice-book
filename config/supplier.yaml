@@ -1,0 +1,7 @@
+parameters:
+    supplier.name: 'Vzorová dodavatelská s.r.o.'
+    supplier.address: 'Ukázková 1, 000 00 Vzorov'
+    supplier.company_id: '87654326'
+    supplier.vat_id: 'CZ87654326'
+    supplier.bank_account: '123456789/0800'
+    supplier.register_entry: 'Zapsáno v obchodním rejstříku vedeném Krajským soudem ve Vzorově, oddíl C, vložka 00000'
