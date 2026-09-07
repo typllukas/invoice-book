@@ -1,0 +1,4 @@
+# the Symfony Czech text shows the word null to the user
+'This value should not be null.': 'Tato hodnota nesmí být prázdná.'
+# the Symfony Czech text shows PHP type names, like int|string
+'This value should be of type {{ type }}.': 'Tato hodnota není platná.'

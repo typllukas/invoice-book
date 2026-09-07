@@ -4,19 +4,29 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\DTO\InvoiceInput;
+use App\DTO\InvoiceItemInput;
 use App\Enum\VatRate;
 use App\Helper\VatCalculator;
 use BcMath\Number;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Uid\Ulid;
 
 use function intval;
 use function strval;
 
+/**
+ * Validated as InvoiceItemInput inside the InvoiceInput the Invoice API operations take.
+ *
+ * @see InvoiceItemInput
+ * @see InvoiceInput
+ */
 #[ORM\Entity]
 final class InvoiceItem
 {
+    #[Groups(['invoice:read'])]
     #[ORM\Id]
     #[ORM\Column(type: UlidType::NAME)]
     private Ulid $id;
@@ -25,18 +35,22 @@ final class InvoiceItem
     #[ORM\JoinColumn(nullable: false)]
     private Invoice $invoice;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 255)]
     private string $description;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(precision: 10, scale: 3)]
     private Number $quantity;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 16)]
     private string $unit;
 
     #[ORM\Column(precision: 12, scale: 2)]
     private Number $unitPriceNetInMajorUnits;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 2)]
     private VatRate $vatRate;
 
@@ -104,6 +118,7 @@ final class InvoiceItem
         return $this;
     }
 
+    #[Groups(['invoice:read'])]
     public function getUnitPriceNet(): int
     {
         return intval(strval($this->unitPriceNetInMajorUnits->mul(100)));
@@ -116,6 +131,7 @@ final class InvoiceItem
         return $this;
     }
 
+    #[Groups(['invoice:read'])]
     public function getNetAmount(): int
     {
         if (!$this->issuedNetAmountInMajorUnits instanceof Number) {

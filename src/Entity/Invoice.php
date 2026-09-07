@@ -4,6 +4,19 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\BackedEnumFilter;
+use ApiPlatform\Doctrine\Orm\Filter\DateFilter;
+use ApiPlatform\Doctrine\Orm\Filter\ExistsFilter;
+use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use ApiPlatform\Metadata\ApiFilter;
+use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\Delete;
+use ApiPlatform\Metadata\Get;
+use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Post;
+use ApiPlatform\Metadata\Put;
+use App\DTO\InvoiceInput;
 use App\DTO\VatSummaryLine;
 use App\Enum\InvoiceStatus;
 use App\Enum\VatRate;
@@ -11,74 +24,151 @@ use App\Helper\MixedToInteger;
 use App\Helper\MixedToString;
 use App\Helper\VatCalculator;
 use App\Repository\InvoiceRepository;
+use App\State\Processor\Invoice\CreateInvoiceProcessor;
+use App\State\Processor\Invoice\DeleteInvoiceProcessor;
+use App\State\Processor\Invoice\UpdateInvoiceProcessor;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UlidType;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Uid\Ulid;
 
+use function preg_replace;
+
+#[ApiResource(
+    operations: [
+        new GetCollection(
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get_collection',
+                ],
+            ],
+        ),
+        new Get(
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+        ),
+        new Post(
+            processor: CreateInvoiceProcessor::class,
+            input: InvoiceInput::class,
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+        ),
+        new Put(
+            processor: UpdateInvoiceProcessor::class,
+            input: InvoiceInput::class,
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+        ),
+        new Delete(
+            processor: DeleteInvoiceProcessor::class,
+        ),
+    ],
+)]
+#[ApiFilter(OrderFilter::class, properties: ['number', 'clientName', 'issuedAt', 'dueAt', 'paidAt', 'status'])]
+#[ApiFilter(SearchFilter::class, properties: ['clientName' => SearchFilter::STRATEGY_PARTIAL])]
+#[ApiFilter(BackedEnumFilter::class, properties: ['status'])]
+#[ApiFilter(ExistsFilter::class, properties: ['paidAt'])]
+#[ApiFilter(DateFilter::class, properties: ['issuedAt', 'dueAt'])]
 #[ORM\Entity(repositoryClass: InvoiceRepository::class)]
 final class Invoice
 {
     public const string CALENDAR_TIME_ZONE = 'Europe/Prague';
 
+    #[Groups(['invoice:read'])]
     #[ORM\Id]
     #[ORM\Column(type: UlidType::NAME)]
     private Ulid $id;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 11, unique: true, nullable: true)]
     private ?string $number = null;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 16)]
     private InvoiceStatus $status = InvoiceStatus::DRAFT;
 
+    #[Groups(['invoice:read'])]
     #[ORM\Column(length: 255)]
     private string $clientName;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 255)]
     private string $clientAddress;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 16)]
     private string $clientCompanyId;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 16, nullable: true)]
     private ?string $clientVatId = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $supplierName = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $supplierAddress = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 16, nullable: true)]
     private ?string $supplierCompanyId = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 16, nullable: true)]
     private ?string $supplierVatId = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 32, nullable: true)]
     private ?string $supplierBankAccount = null;
 
     /**
      * Required on a company's invoice by § 435 občanského zákoníku.
      */
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $supplierRegisterEntry = null;
 
+    #[Groups(['invoice:read'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?DateTimeImmutable $issuedAt = null;
 
+    #[Groups(['invoice:read'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private DateTimeImmutable $dueAt;
 
     /**
      * The tax point, DUZP on a Czech document.
      */
+    #[Groups(['invoice:operation:get'])]
+    #[Context([DateTimeNormalizer::FORMAT_KEY => 'Y-m-d'])]
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private DateTimeImmutable $taxPointAt;
 
+    #[Groups(['invoice:read'])]
+    #[Context([DateTimeNormalizer::TIMEZONE_KEY => 'UTC'])]
     #[ORM\Column(nullable: true)]
     private ?DateTimeImmutable $paidAt = null;
 
@@ -90,12 +180,14 @@ final class Invoice
     #[ORM\Column(nullable: true)]
     private ?array $issuedVatSummary = null;
 
+    #[Groups(['invoice:operation:get'])]
     #[ORM\Column(length: 1000, nullable: true)]
     private ?string $note = null;
 
     /**
      * @var Collection<int, InvoiceItem>
      */
+    #[Groups(['invoice:read'])]
     #[ORM\OneToMany(
         targetEntity: InvoiceItem::class,
         mappedBy: 'invoice',
@@ -274,9 +366,16 @@ final class Invoice
         return $this;
     }
 
+    #[Groups(['invoice:operation:get'])]
+    public function getVariableSymbol(): ?string
+    {
+        return $this->number === null ? null : preg_replace('/\D/', '', $this->number);
+    }
+
     /**
      * @return list<VatSummaryLine>
      */
+    #[Groups(['invoice:operation:get'])]
     public function getVatSummary(): array
     {
         if ($this->issuedVatSummary === null) {
@@ -297,16 +396,19 @@ final class Invoice
         return $summaryLines;
     }
 
+    #[Groups(['invoice:operation:get'])]
     public function getTotalNetAmount(): int
     {
         return VatCalculator::calculateTotalNetAmount($this->getVatSummary());
     }
 
+    #[Groups(['invoice:operation:get'])]
     public function getTotalVatAmount(): int
     {
         return VatCalculator::calculateTotalVatAmount($this->getVatSummary());
     }
 
+    #[Groups(['invoice:read'])]
     public function getTotalGrossAmount(): int
     {
         return VatCalculator::calculateTotalGrossAmount($this->getVatSummary());
