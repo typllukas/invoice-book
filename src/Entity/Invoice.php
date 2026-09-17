@@ -18,6 +18,7 @@ use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use ApiPlatform\OpenApi\Model\Operation as OpenApiOperation;
 use App\DTO\InvoiceInput;
+use App\DTO\InvoicePdf;
 use App\DTO\Supplier;
 use App\DTO\VatSummaryLine;
 use App\Enum\InvoiceStatus;
@@ -31,6 +32,7 @@ use App\State\Processor\Invoice\DeleteInvoiceProcessor;
 use App\State\Processor\Invoice\IssueInvoiceProcessor;
 use App\State\Processor\Invoice\MarkInvoicePaidProcessor;
 use App\State\Processor\Invoice\UpdateInvoiceProcessor;
+use App\State\Provider\Invoice\InvoicePdfProvider;
 use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -62,6 +64,15 @@ use function preg_replace;
                     'invoice:operation:get',
                 ],
             ],
+        ),
+        new Get(
+            uriTemplate: '/invoices/{id}/pdf',
+            provider: InvoicePdfProvider::class,
+            output: InvoicePdf::class,
+            normalizationContext: [
+                'groups' => ['invoice_pdf:read'],
+            ],
+            openapi: new OpenApiOperation(summary: 'The issued invoice as a PDF, base64 encoded.'),
         ),
         new Post(
             processor: CreateInvoiceProcessor::class,
