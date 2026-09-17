@@ -5,12 +5,13 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { RouterProvider } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import { AppErrorBoundary } from './components/common/error/AppErrorBoundary'
 import { queryClient } from './config/queryClient'
 import { router } from './router/routes'
 import { theme } from './config/theme'
 import { ToastProvider } from './components/common/ToastProvider'
+import { CalendarLocalizationProvider } from './components/common/CalendarLocalizationProvider'
 
 const rootElement = document.getElementById('root')
 
@@ -23,13 +24,15 @@ createRoot(rootElement).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <MotionConfig reducedMotion="user">
-          <ToastProvider>
-            <AppErrorBoundary>
-              <RouterProvider router={router} />
-            </AppErrorBoundary>
-          </ToastProvider>
-        </MotionConfig>
+        <CalendarLocalizationProvider>
+          <MotionConfig reducedMotion="user">
+            <ToastProvider>
+              <AppErrorBoundary>
+                <RouterProvider router={router} />
+              </AppErrorBoundary>
+            </ToastProvider>
+          </MotionConfig>
+        </CalendarLocalizationProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,
