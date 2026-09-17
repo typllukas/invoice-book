@@ -1,0 +1,131 @@
+{% macro amount(minor_units) %}{{ (minor_units / 100)|number_format(2, ',', ' ') }} Kč{% endmacro %}
+{% macro quantity(quantity) %}{{ quantity|number_format(3, ',', ' ')|trim('0', 'right')|trim(',', 'right') }}{% endmacro %}
+{% macro vat_rate(vat_rate) %}{{ vat_rate is same as enum('App\\Enum\\VatRate').EXEMPT ? 'osvobozeno' : vat_rate.value ~ ' %' }}{% endmacro %}
+{% import _self as format %}
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Faktura {{ invoice.number }}</title>
+    <style>
+        @page { margin: 18mm 16mm; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 9.5pt; color: #1f1f1f; }
+        h1 { font-size: 16pt; margin: 0 0 14pt; }
+        .caption { font-size: 7.5pt; color: #6b6b6b; text-transform: uppercase; letter-spacing: 0.4pt; }
+        .parties, .dates { width: 100%; border-collapse: collapse; margin-bottom: 14pt; }
+        .parties td, .dates td { vertical-align: top; padding: 0 12pt 0 0; }
+        .parties td { width: 50%; }
+        table.items, table.summary { border-collapse: collapse; }
+        table.items { width: 100%; }
+        table.items th, table.summary th { font-weight: normal; text-align: left; border-bottom: 0.75pt solid #9a9a9a; padding: 3pt 4pt; }
+        table.items td, table.summary td { border-bottom: 0.5pt solid #dcdcdc; padding: 3pt 4pt; }
+        table.items .number, table.summary .number { text-align: right; white-space: nowrap; }
+        .summary-block { margin-top: 14pt; margin-left: auto; width: 62%; }
+        table.summary { width: 100%; }
+        table.summary tr.total td { border-bottom: none; font-weight: bold; }
+        .note, .exemption, .amount-due { margin-top: 12pt; }
+        .register-entry { margin-top: 3pt; font-size: 7.5pt; color: #6b6b6b; }
+        .amount-due { text-align: right; font-size: 12pt; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Faktura – daňový doklad č. {{ invoice.number }}</h1>
+
+    <table class="parties">
+        <tr>
+            <td>
+                <div class="caption">Dodavatel</div>
+                <div>{{ invoice.supplierName }}</div>
+                <div>{{ invoice.supplierAddress }}</div>
+                <div>IČO {{ invoice.supplierCompanyId }}</div>
+                {% if invoice.supplierVatId %}<div>DIČ {{ invoice.supplierVatId }}</div>{% endif %}
+                <div>Bankovní účet {{ invoice.supplierBankAccount }}</div>
+                <div class="register-entry">{{ invoice.supplierRegisterEntry }}</div>
+            </td>
+            <td>
+                <div class="caption">Odběratel</div>
+                <div>{{ invoice.clientName }}</div>
+                <div>{{ invoice.clientAddress }}</div>
+                <div>IČO {{ invoice.clientCompanyId }}</div>
+                {% if invoice.clientVatId %}<div>DIČ {{ invoice.clientVatId }}</div>{% endif %}
+            </td>
+        </tr>
+    </table>
+
+    <table class="dates">
+        <tr>
+            <td><div class="caption">Datum vystavení</div>{{ invoice.issuedAt|date('j. n. Y') }}</td>
+            <td><div class="caption">DUZP</div>{{ invoice.taxPointAt|date('j. n. Y') }}</td>
+            <td><div class="caption">Datum splatnosti</div>{{ invoice.dueAt|date('j. n. Y') }}</td>
+            <td><div class="caption">Variabilní symbol</div>{{ invoice.variableSymbol }}</td>
+            {% if invoice.paidAt %}<td><div class="caption">Uhrazeno</div>{{ invoice.paidAt|date('j. n. Y', constant('CALENDAR_TIME_ZONE', invoice)) }}</td>{% endif %}
+        </tr>
+    </table>
+
+    <table class="items">
+        <thead>
+            <tr>
+                <th>Položka</th>
+                <th class="number">Množství</th>
+                <th class="number">Cena za MJ bez DPH</th>
+                <th class="number">Sazba DPH</th>
+                <th class="number">Celkem bez DPH</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice.items %}
+                <tr>
+                    <td>{{ item.description }}</td>
+                    <td class="number">{{ format.quantity(item.quantity.value) }} {{ item.unit }}</td>
+                    <td class="number">{{ format.amount(item.unitPriceNet) }}</td>
+                    <td class="number">{{ format.vat_rate(item.vatRate) }}</td>
+                    <td class="number">{{ format.amount(item.netAmount) }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if invoice.note %}
+        <div class="note">
+            <div class="caption">Poznámka</div>
+            <div>{{ invoice.note|nl2br }}</div>
+        </div>
+    {% endif %}
+
+    <div class="summary-block">
+        <div class="caption">Rekapitulace DPH</div>
+        <table class="summary">
+            <thead>
+                <tr>
+                    <th>Sazba</th>
+                    <th class="number">Základ daně</th>
+                    <th class="number">DPH</th>
+                    <th class="number">Celkem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for summary_line in invoice.vatSummary %}
+                    <tr>
+                        <td>{{ format.vat_rate(summary_line.vatRate) }}</td>
+                        <td class="number">{{ format.amount(summary_line.netAmount) }}</td>
+                        <td class="number">{{ format.amount(summary_line.vatAmount) }}</td>
+                        <td class="number">{{ format.amount(summary_line.grossAmount) }}</td>
+                    </tr>
+                {% endfor %}
+                <tr class="total">
+                    <td>Celkem</td>
+                    <td class="number">{{ format.amount(invoice.totalNetAmount) }}</td>
+                    <td class="number">{{ format.amount(invoice.totalVatAmount) }}</td>
+                    <td class="number">{{ format.amount(invoice.totalGrossAmount) }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="amount-due">Celkem k úhradě {{ format.amount(invoice.totalGrossAmount) }}</div>
+
+    {% if invoice.vatSummary has some summary_line => summary_line.vatRate is same as enum('App\\Enum\\VatRate').EXEMPT %}
+        <div class="exemption">Plnění je osvobozeno od daně.</div>
+    {% endif %}
+</body>
+</html>
