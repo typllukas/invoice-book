@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router'
 import { AppShell } from '@/layouts/AppShell'
 import { NotFoundPage } from '@/pages/error/NotFoundPage'
 import { RouteErrorPage } from '@/pages/error/RouteErrorPage'
+import { InvoicePage } from '@/pages/invoice/InvoicePage'
 import { InvoiceListPage } from '@/pages/invoice/InvoiceListPage'
 
 export const routes = [
@@ -18,6 +19,8 @@ export const routes = [
     ),
     children: [
       { path: '/', element: <InvoiceListPage /> },
+      { path: '/invoices/new', element: <InvoicePage /> },
+      { path: '/invoices/:invoiceId', element: <InvoicePage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
