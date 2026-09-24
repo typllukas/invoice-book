@@ -7,6 +7,7 @@ namespace App\DataFixtures;
 use App\DTO\Supplier;
 use App\Entity\Invoice;
 use App\Entity\InvoiceItem;
+use App\Entity\InvoiceNumberSeries;
 use App\Enum\VatRate;
 use BcMath\Number;
 use DateTimeImmutable;
@@ -39,9 +40,11 @@ final class InvoiceFixtures extends Fixture implements FixtureGroupInterface
     #[Override]
     public function load(ObjectManager $manager): void
     {
+        $numberSeries = new InvoiceNumberSeries()->setYear(self::NUMBER_SERIES_YEAR);
+        $manager->persist($numberSeries);
         $manager->persist($this->createDraftInvoice());
-        $manager->persist($this->createIssuedUnpaidInvoice());
-        $manager->persist($this->createIssuedPaidInvoice());
+        $manager->persist($this->createIssuedUnpaidInvoice($numberSeries));
+        $manager->persist($this->createIssuedPaidInvoice($numberSeries));
 
         $manager->flush();
     }
@@ -73,7 +76,7 @@ final class InvoiceFixtures extends Fixture implements FixtureGroupInterface
             );
     }
 
-    private function createIssuedUnpaidInvoice(): Invoice
+    private function createIssuedUnpaidInvoice(InvoiceNumberSeries $numberSeries): Invoice
     {
         $invoice = new Invoice(new Ulid(self::INVOICE_ISSUED_UNPAID_ULID))
             ->setClientName('Novák a syn s.r.o.')
@@ -91,12 +94,13 @@ final class InvoiceFixtures extends Fixture implements FixtureGroupInterface
                     ->setVatRate(VatRate::STANDARD),
             );
 
-        $invoice->issue('2025-000001', new DateTimeImmutable('2025-08-11'), $this->supplier);
+        $numberSeries->incrementLastSequence();
+        $invoice->issue($numberSeries->formatLastNumber(), new DateTimeImmutable('2025-08-11'), $this->supplier);
 
         return $invoice;
     }
 
-    private function createIssuedPaidInvoice(): Invoice
+    private function createIssuedPaidInvoice(InvoiceNumberSeries $numberSeries): Invoice
     {
         $invoice = new Invoice(new Ulid(self::INVOICE_ISSUED_PAID_ULID))
             ->setClientName('Dvořáková Jana')
@@ -114,7 +118,8 @@ final class InvoiceFixtures extends Fixture implements FixtureGroupInterface
                     ->setVatRate(VatRate::STANDARD),
             );
 
-        $invoice->issue('2025-000002', new DateTimeImmutable('2025-08-12'), $this->supplier);
+        $numberSeries->incrementLastSequence();
+        $invoice->issue($numberSeries->formatLastNumber(), new DateTimeImmutable('2025-08-12'), $this->supplier);
         $invoice->markPaid(new DateTimeImmutable('2025-08-14T09:12:00+02:00'));
 
         return $invoice;
