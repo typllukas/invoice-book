@@ -9,7 +9,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\DTO\Supplier;
 use App\Entity\Invoice;
 use App\Enum\InvoiceStatus;
-use App\Repository\InvoiceRepository;
+use App\Repository\InvoiceNumberSeriesRepository;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Override;
@@ -18,21 +18,15 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 use function intval;
 use function sprintf;
-use function substr;
 
 /**
  * @implements ProcessorInterface<Invoice, Invoice>
  */
 final readonly class IssueInvoiceProcessor implements ProcessorInterface
 {
-    /**
-     * The year and six digits are the ten the variable symbol of a Czech payment holds.
-     */
-    private const int HIGHEST_SEQUENCE = 999999;
-
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private InvoiceRepository $invoiceRepository,
+        private InvoiceNumberSeriesRepository $invoiceNumberSeriesRepository,
         private Supplier $supplier,
         private ClockInterface $clock,
     ) {
@@ -55,21 +49,21 @@ final readonly class IssueInvoiceProcessor implements ProcessorInterface
 
         $issuedAt = $this->clock->now()->setTimezone(new DateTimeZone(Invoice::CALENDAR_TIME_ZONE));
 
-        // the last invoice of the year stays locked until the invoice carrying the next number is written
+        // the series row stays locked until the invoice carrying its number is written
         $this->entityManager->wrapInTransaction(function () use ($data, $issuedAt): void {
-            $year = intval($issuedAt->format('Y'));
-            $lastIssuedInvoice = $this->invoiceRepository->findLastIssuedLockedForYear($year);
-            $lastSequence = $lastIssuedInvoice instanceof Invoice
-                ? intval(substr($lastIssuedInvoice->getNumber() ?? '', 5))
-                : 0;
-            if ($lastSequence >= self::HIGHEST_SEQUENCE) {
+            $numberSeries = $this->invoiceNumberSeriesRepository->findOrCreateLockedForYear(
+                intval($issuedAt->format('Y')),
+            );
+            if ($numberSeries->isExhausted()) {
                 throw new UnprocessableEntityHttpException(
-                    sprintf('Číselná řada faktur roku %d je vyčerpaná.', $year),
+                    sprintf('Číselná řada faktur roku %d je vyčerpaná.', $numberSeries->getYear()),
                 );
             }
 
-            $data->issue(sprintf('%d-%06d', $year, $lastSequence + 1), $issuedAt, $this->supplier);
+            $numberSeries->incrementLastSequence();
+            $data->issue($numberSeries->formatLastNumber(), $issuedAt, $this->supplier);
 
+            $this->entityManager->persist($numberSeries);
             $this->entityManager->persist($data);
             $this->entityManager->flush();
         });
