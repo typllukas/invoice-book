@@ -7,6 +7,7 @@ namespace App\DataFixtures;
 use App\DTO\Supplier;
 use App\Entity\Invoice;
 use App\Entity\InvoiceItem;
+use App\Entity\InvoiceNumberSeries;
 use App\Enum\VatRate;
 use BcMath\Number;
 use DateTimeImmutable;
@@ -62,9 +63,9 @@ final class DemoInvoiceFixtures extends Fixture implements FixtureGroupInterface
     ];
 
     /**
-     * @var array<int, int>
+     * @var array<int, InvoiceNumberSeries>
      */
-    private array $lastSequenceByYear = [];
+    private array $numberSeriesByYear = [];
 
     public function __construct(
         private readonly Supplier $supplier,
@@ -87,6 +88,10 @@ final class DemoInvoiceFixtures extends Fixture implements FixtureGroupInterface
         $today = $this->clock->now()->setTimezone(new DateTimeZone(Invoice::CALENDAR_TIME_ZONE))->setTime(0, 0);
         for ($invoiceIndex = 1; $invoiceIndex <= self::INVOICE_COUNT; $invoiceIndex++) {
             $manager->persist($this->createInvoice($invoiceIndex, $today));
+        }
+
+        foreach ($this->numberSeriesByYear as $numberSeries) {
+            $manager->persist($numberSeries);
         }
 
         $manager->flush();
@@ -127,8 +132,9 @@ final class DemoInvoiceFixtures extends Fixture implements FixtureGroupInterface
         }
 
         $year = intval($taxPointAt->format('Y'));
-        $lastSequence = $this->lastSequenceByYear[$year] = ($this->lastSequenceByYear[$year] ?? 0) + 1;
-        $invoice->issue(sprintf('%d-%06d', $year, $lastSequence), $taxPointAt, $this->supplier);
+        $numberSeries = $this->numberSeriesByYear[$year] ??= new InvoiceNumberSeries()->setYear($year);
+        $numberSeries->incrementLastSequence();
+        $invoice->issue($numberSeries->formatLastNumber(), $taxPointAt, $this->supplier);
 
         $isPastDue = $daysAgo > self::PAYMENT_TERM_DAYS;
         if ($isPastDue ? $invoiceIndex % 12 !== 0 : $invoiceIndex % 2 === 0) {
