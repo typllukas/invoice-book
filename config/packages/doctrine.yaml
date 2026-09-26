@@ -2,6 +2,8 @@ doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
         profiling_collect_backtrace: '%kernel.debug%'
+        types:
+            datetime_immutable: App\Doctrine\Type\UtcDateTimeImmutableType
         # the client name search relies on the accent-insensitive collation
         default_table_options:
             charset: utf8mb4
