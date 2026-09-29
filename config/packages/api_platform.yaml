@@ -8,4 +8,5 @@ api_platform:
         normalization_context:
             skip_null_values: false
     exception_to_status:
+        App\Exception\InvoiceNotFoundException: 404
         App\Exception\UnmatchedInvoiceItemException: 422
