@@ -48,6 +48,27 @@ final class InvoiceGetCollectionApiTest extends CustomApiTestCase
         self::assertSame($ascendingNumbers, $returnedNumbers);
     }
 
+    public function testInvoicesTiedOnTheSortedColumnAreOrderedNewestFirst(): void
+    {
+        $response = self::createClient()->request('GET', '/api/invoices?order[status]=asc');
+
+        self::assertResponseIsSuccessful();
+        $returnedStatuses = self::getCollectionMemberValues($response, 'status');
+        $returnedIds = self::getCollectionMemberValues($response, 'id');
+        $idsByStatus = [];
+
+        foreach ($returnedStatuses as $invoiceIndex => $status) {
+            $idsByStatus[$status][] = $returnedIds[$invoiceIndex];
+        }
+
+        self::assertGreaterThan(1, count($idsByStatus[InvoiceStatus::ISSUED->value]));
+
+        foreach ($idsByStatus as $tiedIds) {
+            $newestFirstIds = $tiedIds;
+            rsort($newestFirstIds);
+            self::assertSame($newestFirstIds, $tiedIds);
+        }
+    }
 
     public function testDraftHasNoNumberAndNoIssueDate(): void
     {

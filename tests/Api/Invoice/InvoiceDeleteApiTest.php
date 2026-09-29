@@ -6,6 +6,7 @@ namespace App\Tests\Api\Invoice;
 
 use App\DataFixtures\InvoiceFixtures;
 use App\Entity\Invoice;
+use App\Enum\InvoiceStatus;
 use App\Tests\CustomApiTestCase;
 
 /**
@@ -38,4 +39,21 @@ final class InvoiceDeleteApiTest extends CustomApiTestCase
         self::assertNotNull(self::getEntityManager()->find(Invoice::class, $issuedInvoiceId));
     }
 
+    public function testADraftIssuedByAConcurrentRequestIsNotDeleted(): void
+    {
+        $client = self::createClient();
+
+        $staleDraftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        self::getEntityManager()->getConnection()->update(
+            'invoice',
+            ['status' => InvoiceStatus::ISSUED->value, 'number' => '2025-000003'],
+            ['id' => $staleDraftInvoice->getId()->toBinary()],
+        );
+
+        $client->request('DELETE', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertJsonContains(['detail' => 'Smazat lze jen koncept faktury.']);
+        self::assertNotNull(self::getEntityManager()->find(Invoice::class, $staleDraftInvoice->getId()));
+    }
 }
