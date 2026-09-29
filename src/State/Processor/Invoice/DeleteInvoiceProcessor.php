@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Invoice;
 use App\Enum\InvoiceStatus;
+use App\Repository\InvoiceRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Override;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -17,8 +18,10 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
  */
 final readonly class DeleteInvoiceProcessor implements ProcessorInterface
 {
-    public function __construct(private EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private EntityManagerInterface $entityManager,
+        private InvoiceRepository $invoiceRepository,
+    ) {
     }
 
     /**
@@ -28,12 +31,15 @@ final readonly class DeleteInvoiceProcessor implements ProcessorInterface
     #[Override]
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): null
     {
-        if ($data->getStatus() !== InvoiceStatus::DRAFT) {
-            throw new UnprocessableEntityHttpException('Smazat lze jen koncept faktury.');
-        }
+        $this->entityManager->wrapInTransaction(function () use ($data): void {
+            $this->invoiceRepository->lockAndRefresh($data);
+            if ($data->getStatus() !== InvoiceStatus::DRAFT) {
+                throw new UnprocessableEntityHttpException('Smazat lze jen koncept faktury.');
+            }
 
-        $this->entityManager->remove($data);
-        $this->entityManager->flush();
+            $this->entityManager->remove($data);
+            $this->entityManager->flush();
+        });
 
         return null;
     }

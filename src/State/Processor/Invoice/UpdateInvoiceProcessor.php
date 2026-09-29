@@ -40,14 +40,17 @@ final readonly class UpdateInvoiceProcessor implements ProcessorInterface
             throw new LogicException('The read provider answers an unknown id with a 404 before this runs.');
         }
 
-        if ($invoice->getStatus() !== InvoiceStatus::DRAFT) {
-            throw new UnprocessableEntityHttpException('Upravit lze jen koncept faktury.');
-        }
+        $this->entityManager->wrapInTransaction(function () use ($data, $invoice): void {
+            $this->invoiceRepository->lockAndRefresh($invoice);
+            if ($invoice->getStatus() !== InvoiceStatus::DRAFT) {
+                throw new UnprocessableEntityHttpException('Upravit lze jen koncept faktury.');
+            }
 
-        $this->invoiceInputMapper->mapOntoInvoice($data, $invoice);
+            $this->invoiceInputMapper->mapOntoInvoice($data, $invoice);
 
-        $this->entityManager->persist($invoice);
-        $this->entityManager->flush();
+            $this->entityManager->persist($invoice);
+            $this->entityManager->flush();
+        });
 
         return $invoice;
     }

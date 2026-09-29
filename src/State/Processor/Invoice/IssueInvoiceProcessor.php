@@ -10,6 +10,7 @@ use App\DTO\Supplier;
 use App\Entity\Invoice;
 use App\Enum\InvoiceStatus;
 use App\Repository\InvoiceNumberSeriesRepository;
+use App\Repository\InvoiceRepository;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface;
 use Override;
@@ -26,6 +27,7 @@ final readonly class IssueInvoiceProcessor implements ProcessorInterface
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
+        private InvoiceRepository $invoiceRepository,
         private InvoiceNumberSeriesRepository $invoiceNumberSeriesRepository,
         private Supplier $supplier,
         private ClockInterface $clock,
@@ -39,18 +41,19 @@ final readonly class IssueInvoiceProcessor implements ProcessorInterface
     #[Override]
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): Invoice
     {
-        if ($data->getStatus() !== InvoiceStatus::DRAFT) {
-            throw new UnprocessableEntityHttpException('Vystavit lze jen koncept faktury.');
-        }
-
-        if ($data->getItems() === []) {
-            throw new UnprocessableEntityHttpException('Fakturu bez položek nelze vystavit.');
-        }
-
         $issuedAt = $this->clock->now()->setTimezone(new DateTimeZone(Invoice::CALENDAR_TIME_ZONE));
 
-        // the series row stays locked until the invoice carrying its number is written
+        // the invoice row, then the series row, stay locked until the invoice carrying its number is written
         $this->entityManager->wrapInTransaction(function () use ($data, $issuedAt): void {
+            $this->invoiceRepository->lockAndRefresh($data);
+            if ($data->getStatus() !== InvoiceStatus::DRAFT) {
+                throw new UnprocessableEntityHttpException('Vystavit lze jen koncept faktury.');
+            }
+
+            if ($data->getItems() === []) {
+                throw new UnprocessableEntityHttpException('Fakturu bez položek nelze vystavit.');
+            }
+
             $numberSeries = $this->invoiceNumberSeriesRepository->findOrCreateLockedForYear(
                 intval($issuedAt->format('Y')),
             );
