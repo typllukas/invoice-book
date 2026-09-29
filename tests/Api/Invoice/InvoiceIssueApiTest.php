@@ -9,8 +9,11 @@ use App\DTO\Supplier;
 use App\Entity\InvoiceItem;
 use App\Entity\InvoiceNumberSeries;
 use App\Enum\InvoiceStatus;
+use App\Enum\VatRate;
 use App\Tests\CustomApiTestCase;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
+
+use function array_first;
 
 /**
  * POST /api/invoices/{id}/issue
@@ -71,7 +74,53 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
         self::assertJsonContains(['number' => '2025-000003', 'variableSymbol' => '2025000003']);
     }
 
+    public function testADraftIssuedByAConcurrentRequestKeepsTheNumberItGotThere(): void
+    {
+        $client = self::createClient();
+        self::mockTime('2025-09-01T10:00:00+00:00');
 
+        $staleDraftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        self::assertSame(InvoiceStatus::DRAFT, $staleDraftInvoice->getStatus());
+        self::getEntityManager()->getConnection()->update(
+            'invoice',
+            ['status' => InvoiceStatus::ISSUED->value, 'number' => '2025-000003'],
+            ['id' => $staleDraftInvoice->getId()->toBinary()],
+        );
+
+        $client->request(
+            'POST',
+            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/issue',
+            ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
+        );
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertJsonContains(['detail' => 'Vystavit lze jen koncept faktury.']);
+        self::assertSame('2025-000003', self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getNumber());
+    }
+
+    public function testAnItemEditedByAConcurrentRequestIsIssuedAsItWasSaved(): void
+    {
+        $client = self::createClient();
+
+        $staleItem = array_first(self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getItems());
+        self::assertInstanceOf(InvoiceItem::class, $staleItem);
+        self::assertSame(VatRate::STANDARD, $staleItem->getVatRate());
+        self::assertSame(150000, $staleItem->getUnitPriceNet());
+        self::getEntityManager()->getConnection()->update(
+            'invoice_item',
+            ['unit_price_net_in_major_units' => '2000.00'],
+            ['id' => $staleItem->getId()->toBinary()],
+        );
+
+        $client->request(
+            'POST',
+            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/issue',
+            ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertJsonContains(['vatSummary' => [['vatRate' => VatRate::STANDARD->value, 'netAmount' => 1600000]]]);
+    }
 
     public function testIssuingAnAlreadyIssuedInvoiceIsRejected(): void
     {

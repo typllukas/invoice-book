@@ -6,6 +6,7 @@ namespace App\Tests\Api\Invoice;
 
 use App\DataFixtures\InvoiceFixtures;
 use App\Entity\InvoiceItem;
+use App\Enum\InvoiceStatus;
 use App\Tests\CustomApiTestCase;
 
 use function array_column;
@@ -256,4 +257,28 @@ final class InvoicePutApiTest extends CustomApiTestCase
         self::assertCount($itemCountBefore, $payload['items']);
     }
 
+    public function testADraftIssuedByAConcurrentRequestIsNotEdited(): void
+    {
+        $client = self::createClient();
+
+        $staleDraftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        $originalClientName = $staleDraftInvoice->getClientName();
+        self::getEntityManager()->getConnection()->update(
+            'invoice',
+            ['status' => InvoiceStatus::ISSUED->value, 'number' => '2025-000003'],
+            ['id' => $staleDraftInvoice->getId()->toBinary()],
+        );
+
+        $client->request('PUT', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID, [
+            'json' => ['clientName' => 'Test Client Renamed'] + $this->buildBodyWithItems([]),
+            'headers' => ['Content-Type' => 'application/ld+json'],
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertJsonContains(['detail' => 'Upravit lze jen koncept faktury.']);
+        self::assertSame(
+            $originalClientName,
+            self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getClientName(),
+        );
+    }
 }
