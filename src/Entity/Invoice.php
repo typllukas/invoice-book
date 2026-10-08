@@ -14,6 +14,9 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\GraphQl\Mutation;
+use ApiPlatform\Metadata\GraphQl\Query;
+use ApiPlatform\Metadata\GraphQl\QueryCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use ApiPlatform\OpenApi\Model\Operation as OpenApiOperation;
@@ -125,6 +128,47 @@ use function preg_replace;
         ),
         new Delete(
             processor: DeleteInvoiceProcessor::class,
+        ),
+    ],
+    graphQlOperations: [
+        new Query(
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+        ),
+        new QueryCollection(
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+            paginationMaximumItemsPerPage: 100,
+        ),
+        new Mutation(
+            processor: IssueInvoiceProcessor::class,
+            denormalizationContext: ['groups' => []],
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+            name: 'issue',
+        ),
+        new Mutation(
+            processor: MarkInvoicePaidProcessor::class,
+            denormalizationContext: ['groups' => []],
+            normalizationContext: [
+                'groups' => [
+                    'invoice:read',
+                    'invoice:operation:get',
+                ],
+            ],
+            name: 'markPaid',
         ),
     ],
 )]
