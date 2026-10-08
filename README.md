@@ -115,6 +115,14 @@ unsaved changes. There is one `useEffect`, the debounce timer of the client filt
 - Not a document store. The PDF is rendered on demand from the issued invoice's stored data, so it
   always comes out the same
 
+## GraphQL
+
+`/api/graphql` serves the same invoices beside REST: an invoice or the whole list with its lines and
+VAT recapitulation in one query, the REST filters with cursor paging, and issuing and marking as paid
+through the same processors. A rejected action comes back as an error inside a 200, and amounts are a
+`BigInt` scalar in "haléře", since GraphQL's `Int` ends at 32 bits. GraphiQL runs at
+`http://127.0.0.1:8082/api/graphql` in development. The React app stays on REST.
+
 ## Endpoints
 
 ```
