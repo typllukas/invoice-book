@@ -10,3 +10,15 @@ api_platform:
     exception_to_status:
         App\Exception\InvoiceNotFoundException: 404
         App\Exception\UnmatchedInvoiceItemException: 422
+    graphql:
+        # the graphql-js 16 introspection query is 13 deep, lower breaks GraphiQL; invoice queries are 3
+        max_query_depth: 13
+        max_query_complexity: 50
+
+when@prod:
+    api_platform:
+        graphql:
+            graphiql:
+                enabled: false
+            introspection:
+                enabled: false
