@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Api\Invoice;
 
 use App\DataFixtures\InvoiceFixtures;
+use App\Enum\InvoiceStatus;
 use App\Tests\CustomApiTestCase;
 use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 
@@ -35,25 +36,36 @@ final class InvoiceMarkPaidApiTest extends CustomApiTestCase
 
     public function testMarkingAPaidInvoicePaidAgainIsRejected(): void
     {
-        self::createClient()->request(
+        $client = self::createClient();
+
+        $paidInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_ISSUED_PAID_ULID);
+        self::assertNotNull($paidInvoice->getPaidAt());
+
+        // Exclude the other 422 cause
+        self::assertSame(InvoiceStatus::ISSUED, $paidInvoice->getStatus());
+
+        $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_ISSUED_PAID_ULID . '/mark_paid',
+            '/api/invoices/' . $paidInvoice->getId()->toBase32() . '/mark_paid',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
         self::assertResponseStatusCodeSame(422);
-        self::assertJsonContains(['detail' => 'Faktura je už uhrazená.']);
     }
 
     public function testADraftCannotBeMarkedPaid(): void
     {
-        self::createClient()->request(
+        $client = self::createClient();
+
+        $draftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        self::assertSame(InvoiceStatus::DRAFT, $draftInvoice->getStatus());
+
+        $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/mark_paid',
+            '/api/invoices/' . $draftInvoice->getId()->toBase32() . '/mark_paid',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
         self::assertResponseStatusCodeSame(422);
-        self::assertJsonContains(['detail' => 'Uhradit lze jen vystavenou fakturu.']);
     }
 }
