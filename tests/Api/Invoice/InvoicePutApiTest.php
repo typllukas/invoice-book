@@ -221,7 +221,8 @@ final class InvoicePutApiTest extends CustomApiTestCase
     {
         $client = self::createClient();
 
-        $draftItem = array_first(self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getItems());
+        $draftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        $draftItem = array_first($draftInvoice->getItems());
         self::assertInstanceOf(InvoiceItem::class, $draftItem);
         $draftItemId = $draftItem->getId()->toBase32();
         $itemBody = [
@@ -233,7 +234,7 @@ final class InvoicePutApiTest extends CustomApiTestCase
             'vatRate' => '21',
         ];
 
-        $client->request('PUT', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID, [
+        $client->request('PUT', '/api/invoices/' . $draftInvoice->getId()->toBase32(), [
             'json' => $this->buildBodyWithItems([$itemBody, ['description' => 'Test item again'] + $itemBody]),
             'headers' => ['Content-Type' => 'application/ld+json'],
         ]);
@@ -317,7 +318,7 @@ final class InvoicePutApiTest extends CustomApiTestCase
             ['id' => $staleDraftInvoice->getId()->toBinary()],
         );
 
-        $client->request('PUT', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID, [
+        $client->request('PUT', '/api/invoices/' . $staleDraftInvoice->getId()->toBase32(), [
             'json' => ['clientName' => 'Test Client Renamed'] + $this->buildBodyWithItems([]),
             'headers' => ['Content-Type' => 'application/ld+json'],
         ]);
@@ -326,7 +327,7 @@ final class InvoicePutApiTest extends CustomApiTestCase
         self::assertJsonContains(['detail' => 'Upravit lze jen koncept faktury.']);
         self::assertSame(
             $originalClientName,
-            self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getClientName(),
+            self::getInvoiceEntity($staleDraftInvoice->getId()->toBase32())->getClientName(),
         );
     }
 }

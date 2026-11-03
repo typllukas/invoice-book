@@ -23,7 +23,7 @@ final class InvoicePdfApiTest extends CustomApiTestCase
         $issuedInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_ISSUED_PAID_ULID);
         self::assertSame(InvoiceStatus::ISSUED, $issuedInvoice->getStatus());
 
-        $response = $client->request('GET', '/api/invoices/' . InvoiceFixtures::INVOICE_ISSUED_PAID_ULID . '/pdf');
+        $response = $client->request('GET', '/api/invoices/' . $issuedInvoice->getId()->toBase32() . '/pdf');
 
         self::assertResponseIsSuccessful();
         self::assertJsonContains(['name' => 'faktura-' . $issuedInvoice->getNumber() . '.pdf']);
@@ -34,12 +34,10 @@ final class InvoicePdfApiTest extends CustomApiTestCase
 
     public function testADraftHasNoPdf(): void
     {
-        self::assertSame(
-            InvoiceStatus::DRAFT,
-            self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getStatus(),
-        );
+        $draftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        self::assertSame(InvoiceStatus::DRAFT, $draftInvoice->getStatus());
 
-        self::createClient()->request('GET', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/pdf');
+        self::createClient()->request('GET', '/api/invoices/' . $draftInvoice->getId()->toBase32() . '/pdf');
 
         self::assertResponseStatusCodeSame(422);
         self::assertJsonContains(['detail' => 'Koncept není daňový doklad, PDF má jen vystavená faktura.']);

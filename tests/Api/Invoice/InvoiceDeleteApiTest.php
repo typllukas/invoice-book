@@ -50,7 +50,7 @@ final class InvoiceDeleteApiTest extends CustomApiTestCase
             ['id' => $staleDraftInvoice->getId()->toBinary()],
         );
 
-        $client->request('DELETE', '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID);
+        $client->request('DELETE', '/api/invoices/' . $staleDraftInvoice->getId()->toBase32());
 
         self::assertResponseStatusCodeSame(422);
         self::assertJsonContains(['detail' => 'Smazat lze jen koncept faktury.']);

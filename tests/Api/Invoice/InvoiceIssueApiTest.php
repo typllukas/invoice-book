@@ -89,20 +89,21 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
 
         $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/issue',
+            '/api/invoices/' . $staleDraftInvoice->getId()->toBase32() . '/issue',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
         self::assertResponseStatusCodeSame(422);
         self::assertJsonContains(['detail' => 'Vystavit lze jen koncept faktury.']);
-        self::assertSame('2025-000003', self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getNumber());
+        self::assertSame('2025-000003', self::getInvoiceEntity($staleDraftInvoice->getId()->toBase32())->getNumber());
     }
 
     public function testAnItemEditedByAConcurrentRequestIsIssuedAsItWasSaved(): void
     {
         $client = self::createClient();
 
-        $staleItem = array_first(self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getItems());
+        $draftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        $staleItem = array_first($draftInvoice->getItems());
         self::assertInstanceOf(InvoiceItem::class, $staleItem);
         self::assertSame(VatRate::STANDARD, $staleItem->getVatRate());
         self::assertSame(150000, $staleItem->getUnitPriceNet());
@@ -114,7 +115,7 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
 
         $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/issue',
+            '/api/invoices/' . $draftInvoice->getId()->toBase32() . '/issue',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
@@ -124,9 +125,14 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
 
     public function testIssuingAnAlreadyIssuedInvoiceIsRejected(): void
     {
-        self::createClient()->request(
+        $client = self::createClient();
+
+        $issuedInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_ISSUED_UNPAID_ULID);
+        self::assertSame(InvoiceStatus::ISSUED, $issuedInvoice->getStatus());
+
+        $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_ISSUED_UNPAID_ULID . '/issue',
+            '/api/invoices/' . $issuedInvoice->getId()->toBase32() . '/issue',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
@@ -164,6 +170,9 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
         $client = self::createClient();
         self::mockTime('2026-09-26T12:00:00+00:00');
 
+        $draftInvoice = self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID);
+        self::assertSame(InvoiceStatus::DRAFT, $draftInvoice->getStatus());
+
         $numberSeries = new InvoiceNumberSeries()->setYear(2026);
         while (!$numberSeries->isExhausted()) {
             $numberSeries->incrementLastSequence();
@@ -174,7 +183,7 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
 
         $client->request(
             'POST',
-            '/api/invoices/' . InvoiceFixtures::INVOICE_DRAFT_ULID . '/issue',
+            '/api/invoices/' . $draftInvoice->getId()->toBase32() . '/issue',
             ['json' => [], 'headers' => ['Content-Type' => 'application/ld+json']],
         );
 
@@ -182,7 +191,7 @@ final class InvoiceIssueApiTest extends CustomApiTestCase
         self::assertJsonContains(['detail' => 'Číselná řada faktur roku 2026 je vyčerpaná.']);
         self::assertSame(
             InvoiceStatus::DRAFT,
-            self::getInvoiceEntity(InvoiceFixtures::INVOICE_DRAFT_ULID)->getStatus(),
+            self::getInvoiceEntity($draftInvoice->getId()->toBase32())->getStatus(),
         );
     }
 }
